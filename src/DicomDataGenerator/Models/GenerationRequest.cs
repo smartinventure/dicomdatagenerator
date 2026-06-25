@@ -31,6 +31,9 @@ namespace DicomDataGenerator.Models
         public int PatientAgeMin { get; init; } = 1;
         public int PatientAgeMax { get; init; } = 95;
 
+        /// <summary>How patient birth dates (and ages) are produced. Defaults to deriving from the age range.</summary>
+        public BirthDateSpec BirthDate { get; init; } = new();
+
         public OutputOptions Output { get; init; } = new();
         public PacsOptions Pacs { get; init; } = new();
 

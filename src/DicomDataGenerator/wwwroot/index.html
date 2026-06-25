@@ -16,7 +16,7 @@
 <body>
   <div id="app" class="container py-4">
     <h2 class="mb-1">DICOM Data Generator</h2>
-    <p class="text-muted">Generate synthetic DICOM test data for easy2BI / Orthanc. Local tool.</p>
+    <p class="text-muted">Generate synthetic DICOM test data for radiology systems like easyRadiology (<a href="https://www.easyradiology.net" target="_blank" rel="noopener">www.easyradiology.net</a>), Orthanc and others.</p>
 
     <!-- Output -->
     <div class="card"><div class="card-body">
@@ -107,10 +107,28 @@
       </div>
 
       <div class="row g-2 mt-2">
+        <div class="col-md-6"><label class="form-label">Study date from</label><input type="date" class="form-control" v-model="req.StudyDateFrom" /></div>
+        <div class="col-md-6"><label class="form-label">Study date to</label><input type="date" class="form-control" v-model="req.StudyDateTo" /></div>
+      </div>
+
+      <div class="mt-3">
+        <span class="me-2">Birth date:</span>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" value="age" v-model="req.BirthDate.Mode" id="bd-age" /><label class="form-check-label" for="bd-age">From age range</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" value="fixed" v-model="req.BirthDate.Mode" id="bd-fixed" /><label class="form-check-label" for="bd-fixed">Fixed date</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" value="random" v-model="req.BirthDate.Mode" @change="suggestBirthRange" id="bd-rand" /><label class="form-check-label" for="bd-rand">Random date range</label></div>
+      </div>
+
+      <div v-if="req.BirthDate.Mode === 'age'" class="row g-2 mt-1">
         <div class="col-md-3"><label class="form-label">Age min</label><input type="number" class="form-control" v-model.number="req.PatientAgeMin" /></div>
         <div class="col-md-3"><label class="form-label">Age max</label><input type="number" class="form-control" v-model.number="req.PatientAgeMax" /></div>
-        <div class="col-md-3"><label class="form-label">Study date from</label><input type="date" class="form-control" v-model="req.StudyDateFrom" /></div>
-        <div class="col-md-3"><label class="form-label">Study date to</label><input type="date" class="form-control" v-model="req.StudyDateTo" /></div>
+      </div>
+      <div v-else-if="req.BirthDate.Mode === 'fixed'" class="row g-2 mt-1">
+        <div class="col-md-4"><label class="form-label">Birth date</label><input type="date" class="form-control" v-model="req.BirthDate.Fixed" /></div>
+      </div>
+      <div v-else class="row g-2 mt-1">
+        <div class="col-md-3"><label class="form-label">Born from</label><input type="date" class="form-control" v-model="req.BirthDate.From" /></div>
+        <div class="col-md-3"><label class="form-label">Born to</label><input type="date" class="form-control" v-model="req.BirthDate.To" /></div>
+        <div class="col-12"><small class="text-muted">Defaults to the last ~90 years; a birth date is never after a study's date.</small></div>
       </div>
     </div></div>
 
@@ -137,7 +155,7 @@
           <div class="d-flex align-items-center mb-1">
             <div class="form-check me-2">
               <input class="form-check-input" type="checkbox" v-model="m.enabled" :id="'mod-'+m.modality" />
-              <label class="form-check-label" :for="'mod-'+m.modality">{{ m.modality }}</label>
+              <label class="form-check-label" :for="'mod-'+m.modality" :title="modalityName(m.modality)" style="cursor: help">{{ m.modality }}</label>
             </div>
             <input v-if="m.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="m.machines" title="machines" />
           </div>
@@ -193,14 +211,14 @@
 
       <div v-if="status" class="mt-3">
         <div class="progress" style="height: 22px;">
-          <div class="progress-bar" :class="{'bg-success': status.State==='done','bg-danger': status.State==='error','bg-warning': status.State==='cancelled'}"
+          <div class="progress-bar" :class="{'bg-success': status.state==='done','bg-danger': status.state==='error','bg-warning': status.state==='cancelled'}"
                :style="{width: pct + '%'}">{{ pct }}%</div>
         </div>
         <small class="text-muted d-block mt-1">
-          State: {{ status.State }} — {{ status.InstancesDone }} / {{ status.InstancesTotalEstimate }} instances,
-          {{ status.StudiesDone }} studies. <span v-if="status.CurrentTarget">{{ status.CurrentTarget }}</span>
+          State: {{ status.state }} — {{ status.instancesDone }} / {{ status.instancesTotalEstimate }} instances,
+          {{ status.studiesDone }} studies. <span v-if="status.currentTarget">{{ status.currentTarget }}</span>
         </small>
-        <small v-if="status.Errors && status.Errors.length" class="text-danger d-block">{{ status.Errors.join('; ') }}</small>
+        <small v-if="status.errors && status.errors.length" class="text-danger d-block">{{ status.errors.join('; ') }}</small>
       </div>
     </div></div>
 

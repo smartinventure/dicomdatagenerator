@@ -1,5 +1,17 @@
 const { createApp, ref, reactive, computed, onMounted } = Vue;
 
+const MODALITY_NAMES = {
+  CR: 'Computed Radiography (digitised X-ray plates)',
+  CT: 'Computed Tomography',
+  DX: 'Digital Radiography (direct digital X-ray)',
+  MG: 'Mammography',
+  MR: 'Magnetic Resonance Imaging',
+  NM: 'Nuclear Medicine',
+  PT: 'Positron Emission Tomography (PET)',
+  US: 'Ultrasound',
+  XA: 'X-Ray Angiography'
+};
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const yearsAgoIso = (y) => { const d = new Date(); d.setFullYear(d.getFullYear() - y); return d.toISOString().slice(0, 10); };
 
@@ -42,6 +54,7 @@ createApp({
       StudyDateTo: todayIso(),
       PatientAgeMin: 1,
       PatientAgeMax: 95,
+      BirthDate: { Mode: 'age', Fixed: null, From: null, To: null },
       Output: { Target: 'folder', FolderPath: '', Layout: 'nested' },
       Pacs: { Host: 'localhost', Port: 4242, CalledAet: 'ORTHANC', CallingAet: 'DICOMGEN' },
       RandomSeed: 0
@@ -64,9 +77,11 @@ createApp({
     });
     const selectedTagCount = computed(() => tags.value.filter(t => t.checked).length);
     const pct = computed(() => {
-      if (!status.value || !status.value.InstancesTotalEstimate) return 0;
-      return Math.min(100, Math.round(100 * status.value.InstancesDone / status.value.InstancesTotalEstimate));
+      if (!status.value || !status.value.instancesTotalEstimate) return 0;
+      return Math.min(100, Math.round(100 * status.value.instancesDone / status.value.instancesTotalEstimate));
     });
+
+    const modalityName = (m) => MODALITY_NAMES[m] || m;
 
     const getJson = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(await r.text()); return r.json(); };
     const postJson = async (url, body) => {
@@ -78,8 +93,19 @@ createApp({
     const setAllTags = (v) => tags.value.forEach(t => t.checked = v);
     const setLevel = (lvl, v) => tags.value.filter(t => t.level === lvl).forEach(t => t.checked = v);
 
+    const suggestBirthRange = () => {
+      if (!req.BirthDate.From) req.BirthDate.From = yearsAgoIso(90);
+      if (!req.BirthDate.To) req.BirthDate.To = todayIso();
+    };
+
     const buildRequest = () => ({
       ...req,
+      BirthDate: {
+        Mode: req.BirthDate.Mode,
+        Fixed: req.BirthDate.Fixed || null,
+        From: req.BirthDate.From || null,
+        To: req.BirthDate.To || null
+      },
       Modalities: modalityRows.value.filter(m => m.enabled).map(m => ({ Modality: m.modality, Machines: m.machines })),
       SelectedTags: tags.value.filter(t => t.checked).map(t => t.keyword)
     });
@@ -88,7 +114,7 @@ createApp({
       error.value = '';
       try {
         const e = await postJson('/api/generate/estimate', buildRequest());
-        estimateText.value = `≈ ${e.Studies} studies, ${e.SeriesMin}–${e.SeriesMax} series, ${e.InstancesMin}–${e.InstancesMax} instances (files).`;
+        estimateText.value = `≈ ${e.studies} studies, ${e.seriesMin}–${e.seriesMax} series, ${e.instancesMin}–${e.instancesMax} instances (files).`;
       } catch (ex) { error.value = ex.message; }
     };
 
@@ -107,7 +133,7 @@ createApp({
       pollTimer = setInterval(async () => {
         try {
           status.value = await getJson('/api/generate/status');
-          if (['done', 'cancelled', 'error', 'idle'].includes(status.value.State)) { running.value = false; clearInterval(pollTimer); }
+          if (['done', 'cancelled', 'error', 'idle'].includes(status.value.state)) { running.value = false; clearInterval(pollTimer); }
         } catch { /* keep polling */ }
       }, 700);
     };
@@ -134,6 +160,6 @@ createApp({
     });
 
     return { req, modalityRows, tags, tagsByLevel, selectedTagCount, error, estimateText, status, running, pct, fs,
-      setAllTags, setLevel, estimate, generate, cancel, openFs, loadFs, pickFs };
+      setAllTags, setLevel, estimate, generate, cancel, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
   }
 }).mount('#app');

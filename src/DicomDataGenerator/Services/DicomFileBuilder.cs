@@ -57,6 +57,7 @@ namespace DicomDataGenerator.Services
             SelStr("TypeOfPatientID", DicomTag.TypeOfPatientID, "TEXT");
             SelStr("RetrieveAETitle", DicomTag.RetrieveAETitle, "ORTHANC");
             if (sel.Contains("PatientAge")) Str(DicomTag.PatientAge, $"{Math.Clamp(c.PatientAgeYears, 0, 999):000}Y");
+            SelDate("PatientBirthDate", DicomTag.PatientBirthDate, c.PatientBirthDate.ToDateTime(TimeOnly.MinValue));
             SelInt("NumberOfStudyRelatedSeries", DicomTag.NumberOfStudyRelatedSeries, c.StudySeriesCount);
 
             // --- Series level ---

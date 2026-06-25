@@ -99,10 +99,9 @@ namespace DicomDataGenerator.Services
                     ct.ThrowIfCancellationRequested();
                     var studyIdx = sIdx + 1;
                     var name = _names.Next(req.Names, rng);
-                    var age = rng.Next(Math.Max(0, req.PatientAgeMin), Math.Max(req.PatientAgeMin, req.PatientAgeMax) + 1);
                     var studyDate = req.StudyDateFrom.AddDays(dateSpan == 0 ? 0 : rng.Next(dateSpan + 1));
                     var studyTime = new TimeOnly(rng.Next(7, 19), rng.Next(60), rng.Next(60));
-                    var birth = studyDate.AddYears(-age);
+                    var (birth, age) = PatientChronology.Resolve(req.BirthDate, req.PatientAgeMin, req.PatientAgeMax, studyDate, rng);
                     var patientId = $"PID{studyIdx:000000}";
                     var accession = $"ACC{studyIdx:000000}";
                     var refPhys = req.ReferringRandom ? referring[rng.Next(referring.Count)] : req.ReferringFixed;

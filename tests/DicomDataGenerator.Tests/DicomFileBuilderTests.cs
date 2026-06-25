@@ -49,7 +49,7 @@ public class DicomFileBuilderTests
     [Fact]
     public void Build_WritesIdentity_SelectedTags_AndTinyPixelData()
     {
-        var sel = new HashSet<string> { "Manufacturer", "BodyPartExamined", "StationName", "PatientAge" };
+        var sel = new HashSet<string> { "Manufacturer", "BodyPartExamined", "StationName", "PatientAge", "PatientBirthDate" };
         var file = new DicomFileBuilder().Build(Ct(sel), new Random(1));
         var ds = file.Dataset;
 
@@ -59,6 +59,7 @@ public class DicomFileBuilderTests
         Assert.Equal("SIEMENS", ds.GetSingleValue<string>(DicomTag.Manufacturer));
         Assert.Equal("HEAD", ds.GetSingleValue<string>(DicomTag.BodyPartExamined));
         Assert.Equal("040Y", ds.GetSingleValue<string>(DicomTag.PatientAge));
+        Assert.Equal("19850101", ds.GetSingleValue<string>(DicomTag.PatientBirthDate));
         Assert.True(ds.Contains(DicomTag.PixelData));
         Assert.Equal((ushort)4, ds.GetSingleValue<ushort>(DicomTag.Rows));
     }

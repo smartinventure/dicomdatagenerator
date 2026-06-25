@@ -42,6 +42,7 @@
   { "group": "0010", "element": "0020", "keyword": "PatientID", "name": "Patient ID", "vr": "LO", "level": "Study", "core": true },
   { "group": "0010", "element": "0021", "keyword": "IssuerOfPatientID", "name": "Issuer of Patient ID", "vr": "LO", "level": "Study", "core": false },
   { "group": "0010", "element": "0022", "keyword": "TypeOfPatientID", "name": "Type of Patient ID", "vr": "CS", "level": "Study", "core": false },
+  { "group": "0010", "element": "0030", "keyword": "PatientBirthDate", "name": "Patient's Birth Date", "vr": "DA", "level": "Study", "core": true },
   { "group": "0010", "element": "0040", "keyword": "PatientSex", "name": "Patient's Sex", "vr": "CS", "level": "Study", "core": true },
   { "group": "0010", "element": "1010", "keyword": "PatientAge", "name": "Patient's Age", "vr": "AS", "level": "Study", "core": true },
   { "group": "0018", "element": "0010", "keyword": "ContrastBolusAgent", "name": "Contrast/Bolus Agent", "vr": "LO", "level": "Image", "core": false },
