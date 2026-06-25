@@ -116,3 +116,7 @@ DICOM files are built with [fo-dicom](https://github.com/fo-dicom/fo-dicom).
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+© Smart In Venture GmbH 2026
