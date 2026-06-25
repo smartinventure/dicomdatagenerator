@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DICOM Data Generator</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { background: #f6f8fa; }
+    .card { margin-bottom: 1rem; }
+    .tag-list { max-height: 240px; overflow-y: auto; }
+    .fs-list { max-height: 320px; overflow-y: auto; }
+    code.small { font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <div id="app" class="container py-4">
+    <h2 class="mb-1">DICOM Data Generator</h2>
+    <p class="text-muted">Generate synthetic DICOM test data for easy2BI / Orthanc. Local tool.</p>
+
+    <!-- Output -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Output</h5>
+      <div class="btn-group mb-3" role="group">
+        <input type="radio" class="btn-check" id="t-folder" value="folder" v-model="req.Output.Target" />
+        <label class="btn btn-outline-primary" for="t-folder">Save to folder</label>
+        <input type="radio" class="btn-check" id="t-pacs" value="pacs" v-model="req.Output.Target" />
+        <label class="btn btn-outline-primary" for="t-pacs">Send to PACS (C-STORE)</label>
+      </div>
+
+      <div v-if="req.Output.Target === 'folder'">
+        <div class="input-group mb-2">
+          <input class="form-control" placeholder="Output folder" v-model="req.Output.FolderPath" />
+          <button class="btn btn-outline-secondary" @click="openFs">Browse…</button>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" id="l-nested" value="nested" v-model="req.Output.Layout" />
+          <label class="form-check-label" for="l-nested">Nested (Patient ▸ Study ▸ Series)</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" id="l-flat" value="flat" v-model="req.Output.Layout" />
+          <label class="form-check-label" for="l-flat">Flat</label>
+        </div>
+      </div>
+
+      <div v-else class="row g-2">
+        <div class="col"><label class="form-label">Host</label><input class="form-control" v-model="req.Pacs.Host" /></div>
+        <div class="col"><label class="form-label">Port</label><input type="number" class="form-control" v-model.number="req.Pacs.Port" /></div>
+        <div class="col"><label class="form-label">Called AET</label><input class="form-control" v-model="req.Pacs.CalledAet" /></div>
+        <div class="col"><label class="form-label">Calling AET</label><input class="form-control" v-model="req.Pacs.CallingAet" /></div>
+      </div>
+    </div></div>
+
+    <!-- Volume -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Volume</h5>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Studies</label>
+          <input type="number" min="1" class="form-control" v-model.number="req.Studies" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Series per study</label>
+          <count-spec :spec="req.Series"></count-spec>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Images per series</label>
+          <count-spec :spec="req.Images"></count-spec>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- Patients -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Patients</h5>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" :value="true" v-model="req.Names.Random" id="n-rand" />
+        <label class="form-check-label" for="n-rand">Random names</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" :value="false" v-model="req.Names.Random" id="n-fixed" />
+        <label class="form-check-label" for="n-fixed">Fixed name</label>
+      </div>
+
+      <div v-if="!req.Names.Random" class="row g-2 mt-1">
+        <div class="col"><input class="form-control" placeholder="Last name" v-model="req.Names.FixedLast" /></div>
+        <div class="col"><input class="form-control" placeholder="First name" v-model="req.Names.FixedFirst" /></div>
+      </div>
+
+      <div v-else class="mt-2">
+        <div class="mb-2">
+          <span class="me-2">Language:</span>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" v-model="req.Names.UseEnglish" id="lang-en" /><label class="form-check-label" for="lang-en">English</label></div>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" v-model="req.Names.UseGerman" id="lang-de" /><label class="form-check-label" for="lang-de">German</label></div>
+        </div>
+        <div class="mb-2">
+          <span class="me-2">Distribution:</span>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="radio" value="even" v-model="req.Names.Weighting" id="w-even" /><label class="form-check-label" for="w-even">Even</label></div>
+          <div class="form-check form-check-inline"><input class="form-check-input" type="radio" value="weighted" v-model="req.Names.Weighting" id="w-weighted" /><label class="form-check-label" for="w-weighted">Weighted (by frequency)</label></div>
+        </div>
+      </div>
+
+      <div class="mt-2">
+        <span class="me-2">Sex:</span>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" v-model="req.Names.SexMale" id="sx-m" /><label class="form-check-label" for="sx-m">Male</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" v-model="req.Names.SexFemale" id="sx-f" /><label class="form-check-label" for="sx-f">Female</label></div>
+      </div>
+
+      <div class="row g-2 mt-2">
+        <div class="col-md-3"><label class="form-label">Age min</label><input type="number" class="form-control" v-model.number="req.PatientAgeMin" /></div>
+        <div class="col-md-3"><label class="form-label">Age max</label><input type="number" class="form-control" v-model.number="req.PatientAgeMax" /></div>
+        <div class="col-md-3"><label class="form-label">Study date from</label><input type="date" class="form-control" v-model="req.StudyDateFrom" /></div>
+        <div class="col-md-3"><label class="form-label">Study date to</label><input type="date" class="form-control" v-model="req.StudyDateTo" /></div>
+      </div>
+    </div></div>
+
+    <!-- Site -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Site &amp; referrers</h5>
+      <div class="row g-2">
+        <div class="col-md-6"><label class="form-label">Institution name</label><input class="form-control" v-model="req.InstitutionName" /></div>
+        <div class="col-md-6"><label class="form-label">Institution address</label><input class="form-control" v-model="req.InstitutionAddress" /></div>
+      </div>
+      <div class="mt-2">
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.ReferringRandom" id="ref-rand" /><label class="form-check-label" for="ref-rand">Random referrers</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="false" v-model="req.ReferringRandom" id="ref-fixed" /><label class="form-check-label" for="ref-fixed">Fixed referrer</label></div>
+        <input v-if="req.ReferringRandom" type="number" class="form-control d-inline-block ms-2" style="width:120px" v-model.number="req.ReferringPoolSize" title="Pool size" />
+        <input v-else class="form-control d-inline-block ms-2" style="width:240px" v-model="req.ReferringFixed" />
+      </div>
+    </div></div>
+
+    <!-- Modalities -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Modalities &amp; machines</h5>
+      <div class="row">
+        <div class="col-md-4 col-6" v-for="m in modalityRows" :key="m.modality">
+          <div class="d-flex align-items-center mb-1">
+            <div class="form-check me-2">
+              <input class="form-check-input" type="checkbox" v-model="m.enabled" :id="'mod-'+m.modality" />
+              <label class="form-check-label" :for="'mod-'+m.modality">{{ m.modality }}</label>
+            </div>
+            <input v-if="m.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="m.machines" title="machines" />
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- Tags -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">DICOM tags
+        <small class="text-muted">({{ selectedTagCount }} selected)</small>
+        <button class="btn btn-sm btn-link" @click="setAllTags(true)">select all</button>
+        <button class="btn btn-sm btn-link" @click="setAllTags(false)">none</button>
+      </h5>
+      <div v-for="lvl in ['Study','Series','Image']" :key="lvl">
+        <details class="mb-2">
+          <summary class="fw-semibold">{{ lvl }} ({{ (tagsByLevel[lvl]||[]).length }})
+            <button class="btn btn-sm btn-link" @click.prevent="setLevel(lvl,true)">all</button>
+            <button class="btn btn-sm btn-link" @click.prevent="setLevel(lvl,false)">none</button>
+          </summary>
+          <div class="tag-list ps-3">
+            <div class="form-check" v-for="t in (tagsByLevel[lvl]||[])" :key="t.keyword">
+              <input class="form-check-input" type="checkbox" v-model="t.checked" :id="'tag-'+t.keyword" />
+              <label class="form-check-label" :for="'tag-'+t.keyword">
+                {{ t.name }} <code class="small text-muted">({{ t.group }},{{ t.element }})</code>
+                <span v-if="t.core" class="badge bg-secondary">core</span>
+              </label>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div></div>
+
+    <!-- Advanced -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Advanced</h5>
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label">Study UID root</label><input class="form-control" v-model="req.UidRoot" /></div>
+        <div class="col-md-3"><label class="form-label">Pixel size (NxN)</label><input type="number" min="1" class="form-control" v-model.number="req.PixelSize" :disabled="req.NoPixelData" /></div>
+        <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" v-model="req.NoPixelData" id="nopix" /><label class="form-check-label" for="nopix">Metadata only (no pixels)</label></div></div>
+        <div class="col-md-2"><label class="form-label">Seed</label><input type="number" class="form-control" v-model.number="req.RandomSeed" title="0 = random" /></div>
+      </div>
+    </div></div>
+
+    <!-- Actions -->
+    <div class="card"><div class="card-body">
+      <button class="btn btn-outline-secondary me-2" @click="estimate">Estimate</button>
+      <button class="btn btn-primary me-2" :disabled="running" @click="generate">{{ running ? 'Generating…' : 'Generate' }}</button>
+      <button class="btn btn-outline-danger" v-if="running" @click="cancel">Cancel</button>
+
+      <p v-if="estimateText" class="mt-2 mb-0 text-muted">{{ estimateText }}</p>
+      <p v-if="error" class="mt-2 mb-0 text-danger">{{ error }}</p>
+
+      <div v-if="status" class="mt-3">
+        <div class="progress" style="height: 22px;">
+          <div class="progress-bar" :class="{'bg-success': status.State==='done','bg-danger': status.State==='error','bg-warning': status.State==='cancelled'}"
+               :style="{width: pct + '%'}">{{ pct }}%</div>
+        </div>
+        <small class="text-muted d-block mt-1">
+          State: {{ status.State }} — {{ status.InstancesDone }} / {{ status.InstancesTotalEstimate }} instances,
+          {{ status.StudiesDone }} studies. <span v-if="status.CurrentTarget">{{ status.CurrentTarget }}</span>
+        </small>
+        <small v-if="status.Errors && status.Errors.length" class="text-danger d-block">{{ status.Errors.join('; ') }}</small>
+      </div>
+    </div></div>
+
+    <!-- Folder browser modal -->
+    <div v-if="fs.open" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,.4)">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Pick output folder</h5>
+            <button type="button" class="btn-close" @click="fs.open=false"></button></div>
+          <div class="modal-body">
+            <p class="mb-2"><code>{{ fs.current || 'Drives' }}</code></p>
+            <div class="fs-list border rounded">
+              <button v-if="fs.current" class="list-group-item list-group-item-action w-100 text-start" @click="loadFs(fs.parent || '')">⬆ up</button>
+              <button v-for="e in fs.entries" :key="e.path" class="list-group-item list-group-item-action w-100 text-start" @click="loadFs(e.path)">📁 {{ e.name }}</button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="fs.open=false">Cancel</button>
+            <button class="btn btn-primary" :disabled="!fs.current" @click="pickFs">Use this folder</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
