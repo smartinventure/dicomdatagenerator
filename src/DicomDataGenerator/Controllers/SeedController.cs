@@ -25,5 +25,8 @@ namespace DicomDataGenerator.Controllers
 
         [HttpGet("bodyparts")]
         public IActionResult BodyParts() => Ok(BodyPartCatalog.All);
+
+        [HttpGet("transfersyntaxes")]
+        public IActionResult TransferSyntaxes() => Ok(TransferSyntaxCatalog.ForUi());
     }
 }

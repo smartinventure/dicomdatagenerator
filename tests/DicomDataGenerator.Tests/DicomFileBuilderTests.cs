@@ -51,7 +51,7 @@ public class DicomFileBuilderTests
     public void Build_WritesIdentity_SelectedTags_AndTinyPixelData()
     {
         var sel = new HashSet<string> { "Manufacturer", "BodyPartExamined", "StationName", "PatientAge", "PatientBirthDate" };
-        var file = new DicomFileBuilder().Build(Ct(sel), new Random(1));
+        var file = new DicomFileBuilder().Build(Ct(sel), new Random(1), verify: true, DicomTransferSyntax.ExplicitVRLittleEndian);
         var ds = file.Dataset;
 
         Assert.Equal("CT", ds.GetSingleValue<string>(DicomTag.Modality));
@@ -68,7 +68,7 @@ public class DicomFileBuilderTests
     [Fact]
     public void Build_OmitsUnselectedOptionalTags()
     {
-        var file = new DicomFileBuilder().Build(Ct(new HashSet<string>()), new Random(1));
+        var file = new DicomFileBuilder().Build(Ct(new HashSet<string>()), new Random(1), verify: true, DicomTransferSyntax.ExplicitVRLittleEndian);
         Assert.False(file.Dataset.Contains(DicomTag.Manufacturer)); // not selected
         Assert.True(file.Dataset.Contains(DicomTag.SOPInstanceUID)); // identity always present
     }
@@ -76,7 +76,7 @@ public class DicomFileBuilderTests
     [Fact]
     public void Build_RoundTripsThroughFoDicom()
     {
-        var file = new DicomFileBuilder().Build(Ct(new HashSet<string> { "StudyDescription" }), new Random(1));
+        var file = new DicomFileBuilder().Build(Ct(new HashSet<string> { "StudyDescription" }), new Random(1), verify: true, DicomTransferSyntax.ExplicitVRLittleEndian);
         using var ms = new MemoryStream();
         file.Save(ms);
         ms.Position = 0;
@@ -88,7 +88,19 @@ public class DicomFileBuilderTests
     [Fact]
     public void Build_MetadataOnly_HasNoPixelData()
     {
-        var file = new DicomFileBuilder().Build(Ct(new HashSet<string>(), noPixel: true), new Random(1));
+        var file = new DicomFileBuilder().Build(Ct(new HashSet<string>(), noPixel: true), new Random(1), verify: true, DicomTransferSyntax.ExplicitVRLittleEndian);
         Assert.False(file.Dataset.Contains(DicomTag.PixelData));
+    }
+
+    [Fact]
+    public void Build_TranscodesToRequestedTransferSyntax()
+    {
+        var file = new DicomFileBuilder().Build(Ct(new HashSet<string>()), new Random(1), verify: true, DicomTransferSyntax.ImplicitVRLittleEndian);
+        Assert.Equal(DicomTransferSyntax.ImplicitVRLittleEndian, file.Dataset.InternalTransferSyntax);
+        using var ms = new MemoryStream();
+        file.Save(ms);
+        ms.Position = 0;
+        var reopened = DicomFile.Open(ms);
+        Assert.Equal(DicomTransferSyntax.ImplicitVRLittleEndian, reopened.FileMetaInfo.TransferSyntax);
     }
 }

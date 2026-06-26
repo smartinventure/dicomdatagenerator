@@ -47,11 +47,14 @@ createApp({
       BodySiteRandom: true,
       BodySiteFixed: 'BRAIN',
       ReferringRandom: true,
-      ReferringFixed: 'Dr. Smith',
+      ReferringFixed: 'Smith^John^^Dr.',
       ReferringPoolSize: 10,
       UidRoot: '1.2.826.0.1.3680043.8.498',
       PixelSize: 8,
       NoPixelData: false,
+      Verify: false,
+      TransferSyntaxRandom: false,
+      TransferSyntaxFixed: '1.2.840.10008.1.2.1',
       StudyDateFrom: yearsAgoIso(3),
       StudyDateTo: todayIso(),
       PatientAgeMin: 1,
@@ -63,12 +66,15 @@ createApp({
     });
 
     const modalityRows = ref([]);
+    const customModality = reactive({ enabled: false, modality: '', machines: 1 });
     const bodySites = ref([]); // {value, checked}
+    const transferSyntaxes = ref([]); // {uid, name, checked}
     const tags = ref([]); // {keyword,name,group,element,level,core,checked}
     const error = ref('');
     const estimateText = ref('');
     const status = ref(null);
     const running = ref(false);
+    const completedModal = ref(false);
     let pollTimer = null;
 
     const fs = reactive({ open: false, current: '', parent: null, entries: [] });
@@ -111,8 +117,14 @@ createApp({
         From: req.BirthDate.From || null,
         To: req.BirthDate.To || null
       },
-      Modalities: modalityRows.value.filter(m => m.enabled).map(m => ({ Modality: m.modality, Machines: m.machines })),
+      Modalities: [
+        ...modalityRows.value.filter(m => m.enabled).map(m => ({ Modality: m.modality, Machines: m.machines })),
+        ...(customModality.enabled && customModality.modality.trim()
+          ? [{ Modality: customModality.modality.trim().toUpperCase(), Machines: customModality.machines }]
+          : [])
+      ],
       BodySites: bodySites.value.filter(b => b.checked).map(b => b.value),
+      TransferSyntaxes: transferSyntaxes.value.filter(t => t.checked).map(t => t.uid),
       SelectedTags: tags.value.filter(t => t.checked).map(t => t.keyword)
     });
 
@@ -139,10 +151,16 @@ createApp({
       pollTimer = setInterval(async () => {
         try {
           status.value = await getJson('/api/generate/status');
-          if (['done', 'cancelled', 'error', 'idle'].includes(status.value.state)) { running.value = false; clearInterval(pollTimer); }
+          if (['done', 'cancelled', 'error', 'idle'].includes(status.value.state)) {
+            running.value = false;
+            clearInterval(pollTimer);
+            completedModal.value = true;   // confirm-only modal; Generate stays disabled until confirmed
+          }
         } catch { /* keep polling */ }
       }, 700);
     };
+
+    const dismissCompleted = () => { completedModal.value = false; };
 
     const cancel = async () => { try { await postJson('/api/generate/cancel', {}); } catch {} };
 
@@ -163,12 +181,14 @@ createApp({
         const defaultBody = ['BRAIN', 'HEAD', 'NECK', 'CHEST', 'ABDOMEN', 'PELVIS', 'SPINE', 'LSPINE', 'SHOULDER', 'KNEE', 'HIP', 'HAND', 'FOOT', 'HEART', 'LIVER'];
         const bp = await getJson('/api/seed/bodyparts');
         bodySites.value = bp.map(v => ({ value: v, checked: defaultBody.includes(v) }));
+        const ts = await getJson('/api/seed/transfersyntaxes');
+        transferSyntaxes.value = ts.map(x => ({ uid: x.uid, name: x.name, checked: true }));
         const t = await getJson('/api/seed/tags');
         tags.value = t.map(x => ({ keyword: x.keyword, name: x.name, group: x.group, element: x.element, level: x.level, core: x.core, checked: true }));
       } catch (ex) { error.value = 'Failed to load seed data: ' + ex.message; }
     });
 
-    return { req, modalityRows, bodySites, tags, tagsByLevel, selectedTagCount, selectedBodyCount, error, estimateText, status, running, pct, fs,
-      setAllTags, setLevel, setAllBody, estimate, generate, cancel, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
+    return { req, modalityRows, customModality, bodySites, transferSyntaxes, tags, tagsByLevel, selectedTagCount, selectedBodyCount, error, estimateText, status, running, completedModal, pct, fs,
+      setAllTags, setLevel, setAllBody, estimate, generate, cancel, dismissCompleted, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
   }
 }).mount('#app');

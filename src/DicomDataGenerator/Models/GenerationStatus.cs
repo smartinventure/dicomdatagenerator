@@ -4,6 +4,8 @@ namespace DicomDataGenerator.Models
     public class GenerationStatus
     {
         public string State { get; set; } = "idle"; // idle | running | done | cancelled | error
+        /// <summary>True when this run was generated with fo-dicom validation (AutoValidate) enabled.</summary>
+        public bool Verified { get; set; }
         public int StudiesDone { get; set; }
         public int InstancesDone { get; set; }
         public int InstancesTotalEstimate { get; set; }

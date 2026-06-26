@@ -19,7 +19,8 @@ namespace DicomDataGenerator.Models
         public List<string> BodySites { get; init; } = new();
 
         public bool ReferringRandom { get; init; } = true;
-        public string ReferringFixed { get; init; } = "Dr. Smith";
+        /// <summary>Fixed referrer in DICOM PN form: Family^Given^Middle^Prefix (e.g. Smith^John^^Dr.).</summary>
+        public string ReferringFixed { get; init; } = "Smith^John^^Dr.";
         public int ReferringPoolSize { get; init; } = 10;
 
         public string UidRoot { get; init; } = "1.2.826.0.1.3680043.8.498";
@@ -31,6 +32,15 @@ namespace DicomDataGenerator.Models
 
         public int PixelSize { get; init; } = 8;       // Rows = Columns
         public bool NoPixelData { get; init; } = false;
+
+        /// <summary>When true, fo-dicom validates every element value against its VR while building.</summary>
+        public bool Verify { get; init; } = false;
+
+        /// <summary>Transfer syntax of the written files. Fixed value, or random from <see cref="TransferSyntaxes"/>.</summary>
+        public bool TransferSyntaxRandom { get; init; } = false;
+        public string TransferSyntaxFixed { get; init; } = "1.2.840.10008.1.2.1";
+        /// <summary>Pool to draw from when <see cref="TransferSyntaxRandom"/> is true (empty ⇒ all supported).</summary>
+        public List<string> TransferSyntaxes { get; init; } = new();
 
         public DateOnly StudyDateFrom { get; init; } = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-3));
         public DateOnly StudyDateTo { get; init; } = DateOnly.FromDateTime(DateTime.UtcNow);

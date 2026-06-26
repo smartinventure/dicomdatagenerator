@@ -58,7 +58,7 @@ namespace DicomDataGenerator.Services
                 return false;
             }
             _cts = new CancellationTokenSource();
-            _status = new GenerationStatus { State = "running", StartedUtc = DateTimeOffset.UtcNow };
+            _status = new GenerationStatus { State = "running", StartedUtc = DateTimeOffset.UtcNow, Verified = req.Verify };
             var token = _cts.Token;
             _ = Task.Run(() => RunAsync(req, token));
             return true;
@@ -77,6 +77,11 @@ namespace DicomDataGenerator.Services
                 var machinesByMod = mods.ToDictionary(
                     m => m,
                     m => Enumerable.Range(1, Math.Max(1, m.Machines)).Select(i => _catalog.CreateMachine(m.Modality, i, uids, rng)).ToArray());
+
+                var tsPool = (req.TransferSyntaxes is { Count: > 0 })
+                    ? req.TransferSyntaxes.Select(TransferSyntaxCatalog.Resolve).ToArray()
+                    : TransferSyntaxCatalog.Supported;
+                var tsFixed = TransferSyntaxCatalog.Resolve(req.TransferSyntaxFixed);
 
                 // Physician names follow the patient-name language so referrers/readers match the patients.
                 var docEnglish = req.Names.UseEnglish;
@@ -145,6 +150,7 @@ namespace DicomDataGenerator.Services
                             ct.ThrowIfCancellationRequested();
                             var sopUid = uids.SopUid(studyIdx, seriesIdx, inst);
                             var acqDt = seriesDt.AddSeconds((inst - 1) * 2);
+                            var ts = req.TransferSyntaxRandom ? tsPool[rng.Next(tsPool.Length)] : tsFixed;
 
                             var ctx = new InstanceBuildContext
                             {
@@ -184,7 +190,7 @@ namespace DicomDataGenerator.Services
                                 AcquisitionDateTime = acqDt
                             };
 
-                            var file = _builder.Build(ctx, rng);
+                            var file = _builder.Build(ctx, rng, req.Verify, ts);
                             if (pacsBatch != null)
                             {
                                 pacsBatch.Add(file);

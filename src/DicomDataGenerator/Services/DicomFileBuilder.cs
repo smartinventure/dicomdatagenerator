@@ -2,6 +2,7 @@ using DicomDataGenerator.Models;
 using FellowOakDicom;
 using FellowOakDicom.IO.Buffer;
 using FellowOakDicom.Imaging;
+using FellowOakDicom.Imaging.Codec;
 
 namespace DicomDataGenerator.Services
 {
@@ -14,11 +15,12 @@ namespace DicomDataGenerator.Services
     {
         private static readonly HashSet<string> CtLike = new(StringComparer.OrdinalIgnoreCase) { "CT", "DX", "CR", "MG", "XA", "PT" };
 
-        public DicomFile Build(InstanceBuildContext c, Random rng)
+        public DicomFile Build(InstanceBuildContext c, Random rng, bool verify, DicomTransferSyntax transferSyntax)
         {
             var sel = c.SelectedTags;
             var modality = c.Machine.Modality;
-            var ds = new DicomDataset();
+            // AutoValidate makes fo-dicom check every element value against its VR as it is added.
+            var ds = new DicomDataset { AutoValidate = verify };
 
             void Str(DicomTag tag, string? value) { if (!string.IsNullOrEmpty(value)) ds.AddOrUpdate(tag, value); }
             void SelStr(string kw, DicomTag tag, string? value) { if (sel.Contains(kw)) Str(tag, value); }
@@ -147,7 +149,14 @@ namespace DicomDataGenerator.Services
                 pd.AddFrame(new MemoryByteBuffer(pixels));
             }
 
-            return new DicomFile(ds);
+            var file = new DicomFile(ds);
+            // The dataset is built as Explicit VR LE; transcode to the requested (uncompressed) syntax if different.
+            if (transferSyntax != null && transferSyntax != file.Dataset.InternalTransferSyntax)
+            {
+                var transcoder = new DicomTranscoder(file.Dataset.InternalTransferSyntax, transferSyntax);
+                file = transcoder.Transcode(file);
+            }
+            return file;
         }
     }
 }

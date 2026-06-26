@@ -2,9 +2,15 @@ using DicomDataGenerator.Models;
 
 namespace DicomDataGenerator.Services
 {
-    /// <summary>Known modalities → SOP Class UID + a small manufacturer/model pool; builds machines.</summary>
+    /// <summary>
+    /// Modalities offered to the UI. The common imaging modalities carry their correct SOP Class UID and a
+    /// manufacturer/model pool; the remaining (non-retired) DICOM modality codes are still selectable and
+    /// fall back to Secondary Capture Image Storage. Retired modality codes are intentionally excluded.
+    /// </summary>
     public class ModalityCatalog
     {
+        private const string SecondaryCapture = "1.2.840.10008.5.1.4.1.1.7";
+
         private record Entry(string SopClassUid, (string Manufacturer, string Model)[] Devices);
 
         private static readonly Dictionary<string, Entry> Catalog = new(StringComparer.OrdinalIgnoreCase)
@@ -18,12 +24,24 @@ namespace DicomDataGenerator.Services
             ["NM"] = new("1.2.840.10008.5.1.4.1.1.20", new[] { ("SIEMENS", "Symbia Intevo"), ("GE MEDICAL SYSTEMS", "Discovery NM630") }),
             ["PT"] = new("1.2.840.10008.5.1.4.1.1.128", new[] { ("SIEMENS", "Biograph mCT"), ("GE MEDICAL SYSTEMS", "Discovery MI") }),
             ["XA"] = new("1.2.840.10008.5.1.4.1.1.12.1", new[] { ("SIEMENS", "Artis zee"), ("Philips", "Azurion 7") }),
+            ["RF"] = new("1.2.840.10008.5.1.4.1.1.12.2", new[] { ("SIEMENS", "Luminos dRF"), ("Philips", "ProxiDiagnost") }),
         };
 
-        public IReadOnlyList<string> SupportedModalities => Catalog.Keys.OrderBy(k => k).ToList();
+        /// <summary>Non-retired DICOM modality codes (PS3.16 / dicomlibrary.com). Retired codes excluded.</summary>
+        private static readonly string[] NonRetired =
+        {
+            "AR", "ASMT", "AU", "BDUS", "BI", "BMD", "CR", "CT", "DG", "DOC", "DX", "ECG", "EPS", "ES", "FID",
+            "GM", "HC", "HD", "IO", "IOL", "IVOCT", "IVUS", "KER", "KO", "LEN", "LS", "MG", "MR", "NM", "OAM",
+            "OCT", "OP", "OPM", "OPT", "OPV", "OSS", "OT", "PLAN", "PR", "PT", "PX", "REG", "RESP", "RF", "RG",
+            "RTDOSE", "RTIMAGE", "RTPLAN", "RTRECORD", "RTSTRUCT", "RWV", "SEG", "SM", "SMR", "SR", "SRF",
+            "STAIN", "TG", "US", "VA", "XA", "XC"
+        };
+
+        public IReadOnlyList<string> SupportedModalities =>
+            NonRetired.Union(Catalog.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(k => k, StringComparer.Ordinal).ToList();
 
         public string SopClassUid(string modality)
-            => Catalog.TryGetValue(modality, out var e) ? e.SopClassUid : "1.2.840.10008.5.1.4.1.1.7"; // Secondary Capture fallback
+            => Catalog.TryGetValue(modality, out var e) ? e.SopClassUid : SecondaryCapture;
 
         /// <summary>Creates a deterministic machine for (modality, 1-based index).</summary>
         public MachineInfo CreateMachine(string modality, int index, UidFactory uids, Random rng)

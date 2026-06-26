@@ -149,17 +149,27 @@
 
     <!-- Modalities -->
     <div class="card"><div class="card-body">
-      <h5 class="card-title">Modalities &amp; machines</h5>
-      <div class="row">
-        <div class="col-md-4 col-6" v-for="m in modalityRows" :key="m.modality">
-          <div class="d-flex align-items-center mb-1">
-            <div class="form-check me-2">
-              <input class="form-check-input" type="checkbox" v-model="m.enabled" :id="'mod-'+m.modality" />
-              <label class="form-check-label" :for="'mod-'+m.modality" :title="modalityName(m.modality)" style="cursor: help">{{ m.modality }}</label>
+      <h5 class="card-title">Modalities &amp; machines <small class="text-muted">(non-retired DICOM modalities; hover for full name)</small></h5>
+      <div class="tag-list">
+        <div class="row">
+          <div class="col-md-4 col-6" v-for="m in modalityRows" :key="m.modality">
+            <div class="d-flex align-items-center mb-1">
+              <div class="form-check me-2">
+                <input class="form-check-input" type="checkbox" v-model="m.enabled" :id="'mod-'+m.modality" />
+                <label class="form-check-label" :for="'mod-'+m.modality" :title="modalityName(m.modality)" style="cursor: help">{{ m.modality }}</label>
+              </div>
+              <input v-if="m.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="m.machines" title="machines" />
             </div>
-            <input v-if="m.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="m.machines" title="machines" />
           </div>
         </div>
+      </div>
+      <div class="d-flex align-items-center mt-2 gap-2">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" v-model="customModality.enabled" id="mod-custom" />
+          <label class="form-check-label" for="mod-custom">Custom modality</label>
+        </div>
+        <input v-if="customModality.enabled" class="form-control form-control-sm" style="max-width:160px" placeholder="e.g. ECG" v-model="customModality.modality" />
+        <input v-if="customModality.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="customModality.machines" title="machines" />
       </div>
     </div></div>
 
@@ -171,12 +181,11 @@
         <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.BodySiteRandom" id="bs-rand" /><label class="form-check-label" for="bs-rand">Random from selected</label></div>
       </div>
 
-      <div v-if="!req.BodySiteRandom" class="row g-2">
-        <div class="col-md-4">
-          <select class="form-select" v-model="req.BodySiteFixed">
-            <option v-for="b in bodySites" :key="b.value" :value="b.value">{{ b.value }}</option>
-          </select>
-        </div>
+      <div v-if="!req.BodySiteRandom">
+        <select class="form-select" size="8" style="max-width: 280px" v-model="req.BodySiteFixed">
+          <option v-for="b in bodySites" :key="b.value" :value="b.value">{{ b.value }}</option>
+        </select>
+        <div class="form-text">Selected: <code>{{ req.BodySiteFixed }}</code></div>
       </div>
 
       <div v-else>
@@ -228,18 +237,44 @@
     <div class="card"><div class="card-body">
       <h5 class="card-title">Advanced</h5>
       <div class="row g-2">
-        <div class="col-md-4"><label class="form-label">Study UID root</label><input class="form-control" v-model="req.UidRoot" /></div>
+        <div class="col-md-4"><label class="form-label">Root UID</label><input class="form-control" v-model="req.UidRoot" /><div class="form-text">Prefixed before the study, series and instance UIDs.</div></div>
         <div class="col-md-3"><label class="form-label">Pixel size (NxN)</label><input type="number" min="1" class="form-control" v-model.number="req.PixelSize" :disabled="req.NoPixelData" /></div>
         <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" v-model="req.NoPixelData" id="nopix" /><label class="form-check-label" for="nopix">Metadata only (no pixels)</label></div></div>
         <div class="col-md-2"><label class="form-label">Seed</label><input type="number" class="form-control" v-model.number="req.RandomSeed" title="0 = random" /></div>
       </div>
     </div></div>
 
+    <!-- Transfer syntax -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Transfer syntax</h5>
+      <div class="mb-2">
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="false" v-model="req.TransferSyntaxRandom" id="ts-fixed" /><label class="form-check-label" for="ts-fixed">Fixed</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.TransferSyntaxRandom" id="ts-rand" /><label class="form-check-label" for="ts-rand">Random from selected</label></div>
+      </div>
+      <div v-if="!req.TransferSyntaxRandom" class="row g-2">
+        <div class="col-md-6">
+          <select class="form-select" v-model="req.TransferSyntaxFixed">
+            <option v-for="t in transferSyntaxes" :key="t.uid" :value="t.uid">{{ t.name }} — {{ t.uid }}</option>
+          </select>
+        </div>
+      </div>
+      <div v-else>
+        <div class="form-check" v-for="t in transferSyntaxes" :key="t.uid">
+          <input class="form-check-input" type="checkbox" v-model="t.checked" :id="'ts-'+t.uid" />
+          <label class="form-check-label" :for="'ts-'+t.uid">{{ t.name }} <code class="small text-muted">{{ t.uid }}</code></label>
+        </div>
+      </div>
+    </div></div>
+
     <!-- Actions -->
     <div class="card"><div class="card-body">
       <button class="btn btn-outline-secondary me-2" @click="estimate">Estimate</button>
-      <button class="btn btn-primary me-2" :disabled="running" @click="generate">{{ running ? 'Generating…' : 'Generate' }}</button>
-      <button class="btn btn-outline-danger" v-if="running" @click="cancel">Cancel</button>
+      <button class="btn btn-primary me-2" :disabled="running || completedModal" @click="generate">{{ running ? 'Generating…' : 'Generate' }}</button>
+      <button class="btn btn-outline-danger me-3" v-if="running" @click="cancel">Cancel</button>
+      <div class="form-check form-check-inline align-middle">
+        <input class="form-check-input" type="checkbox" v-model="req.Verify" id="verify" />
+        <label class="form-check-label" for="verify" title="Run fo-dicom's validator over every element while generating">Verify data</label>
+      </div>
 
       <p v-if="estimateText" class="mt-2 mb-0 text-muted">{{ estimateText }}</p>
       <p v-if="error" class="mt-2 mb-0 text-danger">{{ error }}</p>
@@ -256,6 +291,29 @@
         <small v-if="status.errors && status.errors.length" class="text-danger d-block">{{ status.errors.join('; ') }}</small>
       </div>
     </div></div>
+
+    <!-- Generation complete modal (confirm-only; no other way to dismiss) -->
+    <div v-if="completedModal" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,.5)">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              {{ status && status.state === 'error' ? 'Generation failed'
+               : status && status.state === 'cancelled' ? 'Generation cancelled'
+               : 'Generation completed' }}
+            </h5>
+          </div>
+          <div class="modal-body">
+            <p class="mb-1">{{ status ? status.instancesDone : 0 }} instances in {{ status ? status.studiesDone : 0 }} studies.</p>
+            <p v-if="status && status.verified && status.state === 'done'" class="text-success mb-0">✓ Data was verified through fo-dicom.</p>
+            <p v-if="status && status.errors && status.errors.length" class="text-danger mb-0">{{ status.errors.join('; ') }}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" @click="dismissCompleted">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Folder browser modal -->
     <div v-if="fs.open" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,.4)">
@@ -282,6 +340,6 @@
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260628"></script>
 </body>
 </html>
