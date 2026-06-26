@@ -18,6 +18,24 @@
     <h2 class="mb-1">DICOM Data Generator</h2>
     <p class="text-muted">Generate synthetic DICOM test data for radiology systems like easyRadiology (<a href="https://www.easyradiology.net" target="_blank" rel="noopener">www.easyradiology.net</a>), Orthanc and others.</p>
 
+    <!-- Saved settings -->
+    <div class="mb-3 d-flex align-items-center gap-2">
+      <strong class="me-1">Saved settings:</strong>
+      <div class="dropdown position-relative">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" @click="savedOpen = !savedOpen" @blur="onSavedBlur">
+          {{ savedSettings.length }} saved
+        </button>
+        <ul class="dropdown-menu" :class="{ show: savedOpen }" style="position:absolute; min-width: 260px;">
+          <li v-if="!savedSettings.length" class="dropdown-item-text text-muted">No saved settings yet.</li>
+          <li v-for="s in savedSettings" :key="s.name" class="dropdown-item d-flex justify-content-between align-items-center">
+            <span style="cursor:pointer; flex:1" @mousedown.prevent="loadSetting(s)" :title="'Load ' + s.name">{{ s.name }}</span>
+            <button class="btn btn-sm btn-link text-danger p-0 ms-2" @mousedown.prevent="deleteSetting(s.name)" title="Delete">✕</button>
+          </li>
+        </ul>
+      </div>
+      <span v-if="loadedName" class="text-muted small">loaded: {{ loadedName }}</span>
+    </div>
+
     <!-- Output -->
     <div class="card"><div class="card-body">
       <h5 class="card-title">Output</h5>
@@ -43,11 +61,18 @@
         </div>
       </div>
 
-      <div v-else class="row g-2">
-        <div class="col"><label class="form-label">Host</label><input class="form-control" v-model="req.Pacs.Host" /></div>
-        <div class="col"><label class="form-label">Port</label><input type="number" class="form-control" v-model.number="req.Pacs.Port" /></div>
-        <div class="col"><label class="form-label">Called AET</label><input class="form-control" v-model="req.Pacs.CalledAet" /></div>
-        <div class="col"><label class="form-label">Calling AET</label><input class="form-control" v-model="req.Pacs.CallingAet" /></div>
+      <div v-else>
+        <div class="row g-2">
+          <div class="col"><label class="form-label">Host</label><input class="form-control" v-model="req.Pacs.Host" /></div>
+          <div class="col"><label class="form-label">Port</label><input type="number" class="form-control" v-model.number="req.Pacs.Port" /></div>
+          <div class="col"><label class="form-label">Called AET</label><input class="form-control" v-model="req.Pacs.CalledAet" /></div>
+          <div class="col"><label class="form-label">Calling AET</label><input class="form-control" v-model="req.Pacs.CallingAet" /></div>
+        </div>
+        <div class="form-text">DICOM port (default 4242). For Orthanc in Docker/WSL started with <code>-p 4242:4242</code>, use host <code>localhost</code>, port <code>4242</code>.</div>
+        <div class="mt-2">
+          <button class="btn btn-outline-secondary btn-sm" :disabled="pacsTest.busy" @click="testPacs">{{ pacsTest.busy ? 'Testing…' : 'Test connection' }}</button>
+          <span v-if="pacsTest.message" class="ms-2" :class="pacsTest.ok ? 'text-success' : 'text-danger'">{{ pacsTest.ok ? '✓' : '✗' }} {{ pacsTest.message }}</span>
+        </div>
       </div>
     </div></div>
 
@@ -150,6 +175,14 @@
     <!-- Modalities -->
     <div class="card"><div class="card-body">
       <h5 class="card-title">Modalities &amp; machines <small class="text-muted">(non-retired DICOM modalities; hover for full name)</small></h5>
+      <div class="mb-2">
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.ModalityRandom" id="mod-rand" /><label class="form-check-label" for="mod-rand">Random from selected</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="false" v-model="req.ModalityRandom" id="mod-even" /><label class="form-check-label" for="mod-even">Even spread</label></div>
+      </div>
+      <div class="form-text mb-2">
+        Each <em>series</em> is assigned one modality from those ticked below — randomly, or evenly (round-robin) across them.
+        The number next to a modality is how many distinct machines (stations) it has; a series is given one of them in turn.
+      </div>
       <div class="tag-list">
         <div class="row">
           <div class="col-md-4 col-6" v-for="m in modalityRows" :key="m.modality">
@@ -271,10 +304,11 @@
       <button class="btn btn-outline-secondary me-2" @click="estimate">Estimate</button>
       <button class="btn btn-primary me-2" :disabled="running || completedModal" @click="generate">{{ running ? 'Generating…' : 'Generate' }}</button>
       <button class="btn btn-outline-danger me-3" v-if="running" @click="cancel">Cancel</button>
-      <div class="form-check form-check-inline align-middle">
+      <div class="form-check form-check-inline align-middle me-3">
         <input class="form-check-input" type="checkbox" v-model="req.Verify" id="verify" />
         <label class="form-check-label" for="verify" title="Run fo-dicom's validator over every element while generating">Verify data</label>
       </div>
+      <button class="btn btn-outline-success" @click="saveSettings">Save settings</button>
 
       <p v-if="estimateText" class="mt-2 mb-0 text-muted">{{ estimateText }}</p>
       <p v-if="error" class="mt-2 mb-0 text-danger">{{ error }}</p>
@@ -340,6 +374,6 @@
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="app.js?v=20260628"></script>
+  <script src="app.js?v=20260630"></script>
 </body>
 </html>

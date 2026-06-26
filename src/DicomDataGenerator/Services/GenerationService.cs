@@ -104,6 +104,7 @@ namespace DicomDataGenerator.Services
                 status.InstancesTotalEstimate = (int)Math.Min(total, int.MaxValue);
 
                 var dateSpan = Math.Max(0, req.StudyDateTo.DayNumber - req.StudyDateFrom.DayNumber);
+                var seriesGlobal = 0; // for even round-robin modality spread across the whole run
 
                 for (var sIdx = 0; sIdx < req.Studies; sIdx++)
                 {
@@ -131,7 +132,8 @@ namespace DicomDataGenerator.Services
                     for (var seriesIdx = 1; seriesIdx <= seriesCount; seriesIdx++)
                     {
                         ct.ThrowIfCancellationRequested();
-                        var modCfg = mods[rng.Next(mods.Count)];
+                        var modCfg = req.ModalityRandom ? mods[rng.Next(mods.Count)] : mods[seriesGlobal % mods.Count];
+                        seriesGlobal++;
                         var machines = machinesByMod[modCfg];
                         var machine = machines[rng.Next(machines.Length)];
                         if (seriesIdx == 1) studyModality0 = modCfg.Modality;

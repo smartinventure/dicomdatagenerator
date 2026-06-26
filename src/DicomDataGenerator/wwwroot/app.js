@@ -52,7 +52,8 @@ createApp({
       UidRoot: '1.2.826.0.1.3680043.8.498',
       PixelSize: 8,
       NoPixelData: false,
-      Verify: false,
+      Verify: true,
+      ModalityRandom: true,
       TransferSyntaxRandom: false,
       TransferSyntaxFixed: '1.2.840.10008.1.2.1',
       StudyDateFrom: yearsAgoIso(3),
@@ -75,7 +76,14 @@ createApp({
     const status = ref(null);
     const running = ref(false);
     const completedModal = ref(false);
+    const pacsTest = reactive({ busy: false, ok: false, message: '' });
+    const savedSettings = ref([]); // [{ name, data }]
+    const savedOpen = ref(false);
+    const loadedName = ref('');
     let pollTimer = null;
+
+    const OUTPUT_PATH_KEY = 'ddg.outputPath';
+    const SAVED_SETTINGS_KEY = 'ddg.savedSettings';
 
     const fs = reactive({ open: false, current: '', parent: null, entries: [] });
 
@@ -140,6 +148,9 @@ createApp({
       error.value = ''; estimateText.value = '';
       if (req.Output.Target === 'folder' && !req.Output.FolderPath) { error.value = 'Choose an output folder.'; return; }
       try {
+        if (req.Output.Target === 'folder' && req.Output.FolderPath) {
+          try { localStorage.setItem(OUTPUT_PATH_KEY, req.Output.FolderPath); } catch {}
+        }
         await postJson('/api/generate', buildRequest());
         running.value = true;
         poll();
@@ -164,6 +175,70 @@ createApp({
 
     const cancel = async () => { try { await postJson('/api/generate/cancel', {}); } catch {} };
 
+    const testPacs = async () => {
+      pacsTest.busy = true; pacsTest.message = '';
+      try {
+        const r = await postJson('/api/pacs/test', req.Pacs);
+        pacsTest.ok = !!r.ok; pacsTest.message = r.message || (r.ok ? 'OK' : 'Failed');
+      } catch (ex) {
+        pacsTest.ok = false; pacsTest.message = ex.message;
+      } finally {
+        pacsTest.busy = false;
+      }
+    };
+
+    // --- saved settings (localStorage) ---
+    const persistSaved = () => { try { localStorage.setItem(SAVED_SETTINGS_KEY, JSON.stringify(savedSettings.value)); } catch {} };
+
+    const saveSettings = () => {
+      const name = (window.prompt('Save current settings as:') || '').trim();
+      if (!name) return;
+      const data = buildRequest();
+      const i = savedSettings.value.findIndex(s => s.name === name);
+      if (i >= 0) savedSettings.value[i] = { name, data };
+      else savedSettings.value.push({ name, data });
+      persistSaved();
+      loadedName.value = name;
+    };
+
+    const deleteSetting = (name) => {
+      savedSettings.value = savedSettings.value.filter(s => s.name !== name);
+      persistSaved();
+      if (loadedName.value === name) loadedName.value = '';
+    };
+
+    const onSavedBlur = () => { setTimeout(() => { savedOpen.value = false; }, 150); };
+
+    const loadSetting = (s) => { applySettings(s.data); loadedName.value = s.name; savedOpen.value = false; };
+
+    const applySettings = (data) => {
+      if (!data) return;
+      const fields = ['Studies', 'Series', 'Images', 'Names', 'InstitutionName', 'InstitutionAddress',
+        'BodySiteRandom', 'BodySiteFixed', 'ReferringRandom', 'ReferringFixed', 'ReferringPoolSize',
+        'UidRoot', 'PixelSize', 'NoPixelData', 'Verify', 'ModalityRandom', 'TransferSyntaxRandom',
+        'TransferSyntaxFixed', 'StudyDateFrom', 'StudyDateTo', 'PatientAgeMin', 'PatientAgeMax',
+        'BirthDate', 'Output', 'Pacs', 'RandomSeed'];
+      fields.forEach(k => { if (data[k] !== undefined) req[k] = data[k]; });
+
+      const selMods = data.Modalities || [];
+      modalityRows.value.forEach(m => {
+        const f = selMods.find(x => x.Modality === m.modality);
+        m.enabled = !!f;
+        if (f) m.machines = f.Machines;
+      });
+      const known = new Set(modalityRows.value.map(m => m.modality));
+      const custom = selMods.find(x => !known.has(x.Modality));
+      if (custom) { customModality.enabled = true; customModality.modality = custom.Modality; customModality.machines = custom.Machines; }
+      else { customModality.enabled = false; }
+
+      const bodySel = new Set(data.BodySites || []);
+      bodySites.value.forEach(b => { b.checked = bodySel.has(b.value); });
+      const tsSel = new Set(data.TransferSyntaxes || []);
+      transferSyntaxes.value.forEach(t => { t.checked = tsSel.has(t.uid); });
+      const tagSel = new Set(data.SelectedTags || []);
+      tags.value.forEach(t => { t.checked = tagSel.has(t.keyword); });
+    };
+
     const openFs = () => { fs.open = true; loadFs(''); };
     const loadFs = async (path) => {
       try {
@@ -172,9 +247,17 @@ createApp({
         else { fs.entries = res.directories; fs.current = res.path; fs.parent = res.parent; }
       } catch (ex) { error.value = ex.message; }
     };
-    const pickFs = () => { if (fs.current) { req.Output.FolderPath = fs.current; fs.open = false; } };
+    const pickFs = () => {
+      if (fs.current) {
+        req.Output.FolderPath = fs.current;
+        try { localStorage.setItem(OUTPUT_PATH_KEY, fs.current); } catch {}
+        fs.open = false;
+      }
+    };
 
     onMounted(async () => {
+      try { const saved = localStorage.getItem(OUTPUT_PATH_KEY); if (saved) req.Output.FolderPath = saved; } catch {}
+      try { const raw = localStorage.getItem(SAVED_SETTINGS_KEY); if (raw) savedSettings.value = JSON.parse(raw) || []; } catch {}
       try {
         const mods = await getJson('/api/seed/modalities');
         modalityRows.value = mods.map(m => ({ modality: m, enabled: m === 'CT' || m === 'MR', machines: 1 }));
@@ -188,7 +271,8 @@ createApp({
       } catch (ex) { error.value = 'Failed to load seed data: ' + ex.message; }
     });
 
-    return { req, modalityRows, customModality, bodySites, transferSyntaxes, tags, tagsByLevel, selectedTagCount, selectedBodyCount, error, estimateText, status, running, completedModal, pct, fs,
-      setAllTags, setLevel, setAllBody, estimate, generate, cancel, dismissCompleted, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
+    return { req, modalityRows, customModality, bodySites, transferSyntaxes, tags, tagsByLevel, selectedTagCount, selectedBodyCount, error, estimateText, status, running, completedModal, pacsTest, pct, fs,
+      savedSettings, savedOpen, loadedName, saveSettings, deleteSetting, loadSetting, onSavedBlur,
+      setAllTags, setLevel, setAllBody, estimate, generate, cancel, dismissCompleted, testPacs, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
   }
 }).mount('#app');

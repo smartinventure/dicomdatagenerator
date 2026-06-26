@@ -26,6 +26,8 @@ namespace DicomDataGenerator.Models
         public string UidRoot { get; init; } = "1.2.826.0.1.3680043.8.498";
 
         public List<ModalityConfig> Modalities { get; init; } = new();
+        /// <summary>true: each series picks a random modality from the selected set; false: even round-robin spread.</summary>
+        public bool ModalityRandom { get; init; } = true;
 
         /// <summary>Keywords of the DICOM tags to populate (others are skipped, except mandatory identity tags).</summary>
         public List<string> SelectedTags { get; init; } = new();
@@ -34,7 +36,7 @@ namespace DicomDataGenerator.Models
         public bool NoPixelData { get; init; } = false;
 
         /// <summary>When true, fo-dicom validates every element value against its VR while building.</summary>
-        public bool Verify { get; init; } = false;
+        public bool Verify { get; init; } = true;
 
         /// <summary>Transfer syntax of the written files. Fixed value, or random from <see cref="TransferSyntaxes"/>.</summary>
         public bool TransferSyntaxRandom { get; init; } = false;
