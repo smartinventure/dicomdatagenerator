@@ -78,7 +78,13 @@ namespace DicomDataGenerator.Services
                     m => m,
                     m => Enumerable.Range(1, Math.Max(1, m.Machines)).Select(i => _catalog.CreateMachine(m.Modality, i, uids, rng)).ToArray());
 
-                var referring = ReferringPhysicianPool.Build(_names, req.ReferringPoolSize, rng);
+                // Physician names follow the patient-name language so referrers/readers match the patients.
+                var docEnglish = req.Names.UseEnglish;
+                var docGerman = req.Names.UseGerman;
+                var referring = ReferringPhysicianPool.Build(_names, req.ReferringPoolSize, rng, docEnglish, docGerman);
+
+                var bodyPool = (req.BodySites is { Count: > 0 }) ? req.BodySites.ToArray() : BodyPartCatalog.All;
+                var bodyFixed = string.IsNullOrWhiteSpace(req.BodySiteFixed) ? "BRAIN" : req.BodySiteFixed;
 
                 // Pre-roll counts: accurate progress total, then values stay reproducible for a fixed seed.
                 var plan = new List<int[]>(req.Studies);
@@ -105,7 +111,12 @@ namespace DicomDataGenerator.Services
                     var patientId = $"PID{studyIdx:000000}";
                     var accession = $"ACC{studyIdx:000000}";
                     var refPhys = req.ReferringRandom ? referring[rng.Next(referring.Count)] : req.ReferringFixed;
-                    var bodyPart = ValuePools.Pick(ValuePools.BodyParts, rng);
+                    // Reading physician must differ from the referring physician (requesting may equal it).
+                    string readPhys;
+                    var guard = 0;
+                    do { readPhys = ReferringPhysicianPool.BuildOne(_names, rng, docEnglish, docGerman); }
+                    while (readPhys == refPhys && ++guard < 5);
+                    var bodyPart = req.BodySiteRandom ? bodyPool[rng.Next(bodyPool.Length)] : bodyFixed;
                     var studyUid = uids.StudyUid(studyIdx);
                     var imgCounts = plan[sIdx];
                     var seriesCount = imgCounts.Length;
@@ -153,6 +164,7 @@ namespace DicomDataGenerator.Services
                                 StudyId = studyIdx.ToString(),
                                 StudyDescription = ValuePools.StudyDescription(studyModality0, bodyPart),
                                 ReferringPhysician = refPhys,
+                                ReadingPhysician = readPhys,
                                 InstitutionName = req.InstitutionName,
                                 InstitutionAddress = req.InstitutionAddress,
                                 StudySeriesCount = seriesCount,

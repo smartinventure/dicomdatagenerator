@@ -22,5 +22,8 @@ namespace DicomDataGenerator.Controllers
 
         [HttpGet("modalities")]
         public IActionResult Modalities() => Ok(_modalities.SupportedModalities);
+
+        [HttpGet("bodyparts")]
+        public IActionResult BodyParts() => Ok(BodyPartCatalog.All);
     }
 }

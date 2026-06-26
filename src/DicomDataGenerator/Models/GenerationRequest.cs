@@ -9,8 +9,14 @@ namespace DicomDataGenerator.Models
 
         public NameOptions Names { get; init; } = new();
 
-        public string InstitutionName { get; init; } = "easy2BI Test Clinic";
+        public string InstitutionName { get; init; } = "Radiology Clinic";
         public string InstitutionAddress { get; init; } = string.Empty;
+
+        /// <summary>Organ site (Body Part Examined). Fixed value, or random from <see cref="BodySites"/>.</summary>
+        public bool BodySiteRandom { get; init; } = true;
+        public string BodySiteFixed { get; init; } = "BRAIN";
+        /// <summary>Pool to draw from when <see cref="BodySiteRandom"/> is true (empty ⇒ the full catalog).</summary>
+        public List<string> BodySites { get; init; } = new();
 
         public bool ReferringRandom { get; init; } = true;
         public string ReferringFixed { get; init; } = "Dr. Smith";

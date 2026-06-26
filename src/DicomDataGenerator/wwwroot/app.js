@@ -42,8 +42,10 @@ createApp({
       Series: { Value: 1, Random: false, Min: 1, Max: 5 },
       Images: { Value: 1, Random: false, Min: 1, Max: 100 },
       Names: { Random: true, FixedLast: 'Doe', FixedFirst: 'John', UseEnglish: true, UseGerman: false, Weighting: 'even', SexMale: true, SexFemale: true },
-      InstitutionName: 'easy2BI Test Clinic',
+      InstitutionName: 'Radiology Clinic',
       InstitutionAddress: '',
+      BodySiteRandom: true,
+      BodySiteFixed: 'BRAIN',
       ReferringRandom: true,
       ReferringFixed: 'Dr. Smith',
       ReferringPoolSize: 10,
@@ -61,6 +63,7 @@ createApp({
     });
 
     const modalityRows = ref([]);
+    const bodySites = ref([]); // {value, checked}
     const tags = ref([]); // {keyword,name,group,element,level,core,checked}
     const error = ref('');
     const estimateText = ref('');
@@ -76,6 +79,7 @@ createApp({
       return g;
     });
     const selectedTagCount = computed(() => tags.value.filter(t => t.checked).length);
+    const selectedBodyCount = computed(() => bodySites.value.filter(b => b.checked).length);
     const pct = computed(() => {
       if (!status.value || !status.value.instancesTotalEstimate) return 0;
       return Math.min(100, Math.round(100 * status.value.instancesDone / status.value.instancesTotalEstimate));
@@ -92,6 +96,7 @@ createApp({
 
     const setAllTags = (v) => tags.value.forEach(t => t.checked = v);
     const setLevel = (lvl, v) => tags.value.filter(t => t.level === lvl).forEach(t => t.checked = v);
+    const setAllBody = (v) => bodySites.value.forEach(b => b.checked = v);
 
     const suggestBirthRange = () => {
       if (!req.BirthDate.From) req.BirthDate.From = yearsAgoIso(90);
@@ -107,6 +112,7 @@ createApp({
         To: req.BirthDate.To || null
       },
       Modalities: modalityRows.value.filter(m => m.enabled).map(m => ({ Modality: m.modality, Machines: m.machines })),
+      BodySites: bodySites.value.filter(b => b.checked).map(b => b.value),
       SelectedTags: tags.value.filter(t => t.checked).map(t => t.keyword)
     });
 
@@ -154,12 +160,15 @@ createApp({
       try {
         const mods = await getJson('/api/seed/modalities');
         modalityRows.value = mods.map(m => ({ modality: m, enabled: m === 'CT' || m === 'MR', machines: 1 }));
+        const defaultBody = ['BRAIN', 'HEAD', 'NECK', 'CHEST', 'ABDOMEN', 'PELVIS', 'SPINE', 'LSPINE', 'SHOULDER', 'KNEE', 'HIP', 'HAND', 'FOOT', 'HEART', 'LIVER'];
+        const bp = await getJson('/api/seed/bodyparts');
+        bodySites.value = bp.map(v => ({ value: v, checked: defaultBody.includes(v) }));
         const t = await getJson('/api/seed/tags');
         tags.value = t.map(x => ({ keyword: x.keyword, name: x.name, group: x.group, element: x.element, level: x.level, core: x.core, checked: true }));
       } catch (ex) { error.value = 'Failed to load seed data: ' + ex.message; }
     });
 
-    return { req, modalityRows, tags, tagsByLevel, selectedTagCount, error, estimateText, status, running, pct, fs,
-      setAllTags, setLevel, estimate, generate, cancel, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
+    return { req, modalityRows, bodySites, tags, tagsByLevel, selectedTagCount, selectedBodyCount, error, estimateText, status, running, pct, fs,
+      setAllTags, setLevel, setAllBody, estimate, generate, cancel, openFs, loadFs, pickFs, suggestBirthRange, modalityName };
   }
 }).mount('#app');

@@ -3,9 +3,6 @@ namespace DicomDataGenerator.Services
     /// <summary>Small curated value pools for coded/descriptive tags, so generated data looks realistic.</summary>
     public static class ValuePools
     {
-        public static readonly string[] BodyParts =
-            { "HEAD", "BRAIN", "CHEST", "ABDOMEN", "PELVIS", "SPINE", "KNEE", "SHOULDER", "HAND", "FOOT", "NECK", "HEART" };
-
         public static readonly string[] Laterality = { "", "L", "R" };
 
         public static readonly string[] PatientPositions = { "HFS", "FFS", "HFP", "FFP" };

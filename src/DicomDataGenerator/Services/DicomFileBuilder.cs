@@ -48,12 +48,12 @@ namespace DicomDataGenerator.Services
             SelStr("StudyDescription", DicomTag.StudyDescription, c.StudyDescription);
             SelStr("StudyID", DicomTag.StudyID, c.StudyId);
             SelStr("ReferringPhysicianName", DicomTag.ReferringPhysicianName, c.ReferringPhysician);
-            SelStr("NameOfPhysiciansReadingStudy", DicomTag.NameOfPhysiciansReadingStudy, c.ReferringPhysician);
+            SelStr("NameOfPhysiciansReadingStudy", DicomTag.NameOfPhysiciansReadingStudy, c.ReadingPhysician);
             SelStr("RequestingPhysician", DicomTag.RequestingPhysician, c.ReferringPhysician);
             SelStr("RequestingService", DicomTag.RequestingService, "Radiology");
             SelStr("RequestedProcedureDescription", DicomTag.RequestedProcedureDescription, c.StudyDescription);
             SelStr("RequestedProcedurePriority", DicomTag.RequestedProcedurePriority, "ROUTINE");
-            SelStr("IssuerOfPatientID", DicomTag.IssuerOfPatientID, "easy2BI");
+            SelStr("IssuerOfPatientID", DicomTag.IssuerOfPatientID, c.InstitutionName);
             SelStr("TypeOfPatientID", DicomTag.TypeOfPatientID, "TEXT");
             SelStr("RetrieveAETitle", DicomTag.RetrieveAETitle, "ORTHANC");
             if (sel.Contains("PatientAge")) Str(DicomTag.PatientAge, $"{Math.Clamp(c.PatientAgeYears, 0, 999):000}Y");

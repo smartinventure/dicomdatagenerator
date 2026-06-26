@@ -137,7 +137,7 @@
       <h5 class="card-title">Site &amp; referrers</h5>
       <div class="row g-2">
         <div class="col-md-6"><label class="form-label">Institution name</label><input class="form-control" v-model="req.InstitutionName" /></div>
-        <div class="col-md-6"><label class="form-label">Institution address</label><input class="form-control" v-model="req.InstitutionAddress" /></div>
+        <div class="col-md-6"><label class="form-label">Institution address (optional)</label><input class="form-control" v-model="req.InstitutionAddress" /></div>
       </div>
       <div class="mt-2">
         <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.ReferringRandom" id="ref-rand" /><label class="form-check-label" for="ref-rand">Random referrers</label></div>
@@ -158,6 +158,41 @@
               <label class="form-check-label" :for="'mod-'+m.modality" :title="modalityName(m.modality)" style="cursor: help">{{ m.modality }}</label>
             </div>
             <input v-if="m.enabled" type="number" min="1" class="form-control form-control-sm" style="width:90px" v-model.number="m.machines" title="machines" />
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- Organ site (Body Part Examined) -->
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">Organ site <small class="text-muted">(Body Part Examined)</small></h5>
+      <div class="mb-2">
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="false" v-model="req.BodySiteRandom" id="bs-fixed" /><label class="form-check-label" for="bs-fixed">Fixed</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" :value="true" v-model="req.BodySiteRandom" id="bs-rand" /><label class="form-check-label" for="bs-rand">Random from selected</label></div>
+      </div>
+
+      <div v-if="!req.BodySiteRandom" class="row g-2">
+        <div class="col-md-4">
+          <select class="form-select" v-model="req.BodySiteFixed">
+            <option v-for="b in bodySites" :key="b.value" :value="b.value">{{ b.value }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div v-else>
+        <div class="mb-1">
+          <small class="text-muted">{{ selectedBodyCount }} selected</small>
+          <button class="btn btn-sm btn-link" @click="setAllBody(true)">all</button>
+          <button class="btn btn-sm btn-link" @click="setAllBody(false)">none</button>
+        </div>
+        <div class="tag-list">
+          <div class="row">
+            <div class="col-md-3 col-6" v-for="b in bodySites" :key="b.value">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" v-model="b.checked" :id="'bs-'+b.value" />
+                <label class="form-check-label" :for="'bs-'+b.value">{{ b.value }}</label>
+              </div>
+            </div>
           </div>
         </div>
       </div>

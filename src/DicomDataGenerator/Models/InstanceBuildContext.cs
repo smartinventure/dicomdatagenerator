@@ -23,6 +23,8 @@ namespace DicomDataGenerator.Models
         public required string StudyId { get; init; }
         public required string StudyDescription { get; init; }
         public required string ReferringPhysician { get; init; }
+        /// <summary>Reading physician (0008,1060) — always different from the referring physician.</summary>
+        public required string ReadingPhysician { get; init; }
         public required string InstitutionName { get; init; }
         public string InstitutionAddress { get; init; } = string.Empty;
         public int StudySeriesCount { get; init; }
